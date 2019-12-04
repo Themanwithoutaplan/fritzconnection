@@ -7,19 +7,8 @@ License: MIT (https://opensource.org/licenses/MIT)
 Author: Klaus Bremer
 """
 
-import requests
-from xml.etree import ElementTree as etree
-
-from .nodes import Description
-from .exceptions import FritzConnectionException
-
-
-def get_content_from(url):
-    conn = requests.get(url)
-    ct = conn.headers.get("Content-type")
-    if ct == "text/html":
-        raise FritzConnectionException("Unable to login into device to get configuration information.")
-    return conn.text
+from .processor import Description
+from .utils import get_xml_root
 
 
 class DeviceManager:
@@ -42,17 +31,27 @@ class DeviceManager:
         """
         return self.descriptions[0].device_model_name
 
+    @property
+    def system_version(self):
+        """
+        Returns a tuple with version, display and buildnumber from the
+        first description providing this informations. Returns None if
+        no system informations are available.
+        """
+        version = None
+        for description in self.descriptions:
+            version = description.system_version
+            if version:
+                return version
+        return None
+
     def add_description(self, source):
         """
         Adds description data about the devices and the according
         services. 'source' is a string with the xml-data, like the
         content of an igddesc- or tr64desc-file.
         """
-        if isinstance(source, str):
-            if source.startswith("http://") or source.startswith("https://"):
-                source = get_content_from(source)
-        tree = etree.parse(source)
-        root = tree.getroot()
+        root = get_xml_root(source)
         self.descriptions.append(Description(root))
 
     def scan(self):
